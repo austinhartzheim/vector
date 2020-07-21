@@ -277,6 +277,7 @@ struct ESResultItem {
 #[derive(Deserialize, Debug)]
 struct ESIndexResult {
     error: Option<ESErrorDetails>,
+    status: u16,
 }
 #[derive(Deserialize, Debug)]
 struct ESErrorDetails {
@@ -331,7 +332,7 @@ impl RetryLogic for ElasticSearchRetryLogic {
                             )
                         }
                         Ok(esrr) => {
-                            match esrr.items.into_iter().find_map(|item| item.index.error) {
+                            match esrr.items.iter().find_map(|item| item.index.error.as_ref()) {
                                 Some(error) => warn!(
                                     message = "ElasticSearch error response",
                                     err_type = %error.err_type,
@@ -344,7 +345,11 @@ impl RetryLogic for ElasticSearchRetryLogic {
                                     rate_limit_secs = 30
                                 ),
                             };
-                            RetryAction::DontRetry("some messages failed".into())
+                            if esrr.items.iter().any(|item| item.index.status == 429) {
+                                RetryAction::Retry("found internal 429".into())
+                            } else {
+                                RetryAction::DontRetry("some messages failed".into())
+                            }
                         }
                     },
                     None => RetryAction::Successful,
