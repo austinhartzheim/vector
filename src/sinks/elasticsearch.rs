@@ -568,6 +568,20 @@ mod tests {
             RetryAction::DontRetry(_)
         ));
     }
+
+    #[test]
+    fn handles_partial_error_response_429() {
+        let json = "{\"took\":185,\"errors\":true,\"items\":[{\"index\":{\"_index\":\"test-hgw28jv10u\",\"_type\":\"log_lines\",\"_id\":\"3GhQLXEBE62DvOOUKdFH\",\"status\":429,\"error\":{\"type\":\"illegal_argument_exception\",\"reason\":\"mapper [message] of different type, current_type [long], merged_type [text]\"}}}]}";
+        let response = Response::builder()
+            .status(StatusCode::OK)
+            .body(Bytes::from(json))
+            .unwrap();
+        let logic = ElasticSearchRetryLogic;
+        assert!(matches!(
+            logic.should_retry_response(&response),
+            RetryAction::Retry(_)
+        ));
+    }
 }
 
 #[cfg(test)]
